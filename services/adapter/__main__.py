@@ -1,7 +1,5 @@
 import configparser
 import os
-# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import traceback
 from collections import defaultdict
 from pathlib import Path
@@ -194,34 +192,18 @@ class Model:
             else:
                 video_path = self.download_video(video_link)
 
-            
-            if self.mode == 'test':
-                insert_features = []
-                dataloader = VideoDataloader(video_path, self.seq_len, self.timesformer.max_batch_size,
-                                         stride=8, transforms=self.transform)
-                dataloader.is_frame_drop = is_drop_frame(dataloader.frame_shape, video_link)
-                
-                for n, batch in enumerate(dataloader):
-                    batch = batch.transpose(0, 1, 4, 2, 3)
-                    last_hidden_state = self.timesformer(batch)[0]
-                    feature = last_hidden_state[:, 0]
-                    feature = feature / np.linalg.norm(feature, axis=-1, keepdims=True)
-                    insert_features.append(feature)
-                logger.success('Feature requests sucessed')
-                
-                indexes = []
-                insert_features = np.concatenate(insert_features)
-                indexes.extend(self.milvus.insert(self.create_data_rows(insert_features, video_link, 0)))
-                logger.success(f'Inserting sucessful')
-                
-                result = {'indexes': list(map(str, indexes)), 'segments': len(indexes)}
-            
-            elif self.mode == 'similarity':
+                 
+            if self.mode == 'similarity':
                 similarity_data = []
                 insert_features = []
                 
-                dataloader = VideoDataloader(video_path, self.seq_len, self.timesformer.max_batch_size,
-                                         stride=8, transforms=self.transform)
+                dataloader = VideoDataloader(
+                    video_path, 
+                    self.seq_len, 
+                    self.timesformer.max_batch_size,
+                    stride=8, 
+                    transforms=self.transform
+                )
                 
                 npy_path = Path(video_path).parent.parent / 'train_pickles' / f"{str(Path(video_path).stem)}.npy"
                 # npy_path = Path(video_path).with_suffix('.npy')
@@ -311,31 +293,32 @@ class Model:
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    # config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
-    config.read(f'configs/resources.ini')
-    config = config['adapter_docker']
+    config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
+    config = config['adapter_local']
+    # config.read(f'configs/resources.ini')
+    # config = config['adapter_docker']
     
     model = Model(config=config)
     
-    broker = config['broker']
-    match broker:
-        case 'rabbit':
-            from ml_utils import RabbitWrapper
-            broker = RabbitWrapper(config=config)
-        case 'kafka':
-            from ml_utils import KafkaWrapper
-            broker = KafkaWrapper(
-                config=config,
-                consumer_kwargs={"max_poll_interval_ms": 500 * 3600 * 1000, "enable_auto_commit": False}
-            )
+    # broker = config['broker']
+    # match broker:
+    #     case 'rabbit':
+    #         from ml_utils import RabbitWrapper
+    #         broker = RabbitWrapper(config=config)
+    #     case 'kafka':
+    #         from ml_utils import KafkaWrapper
+    #         broker = KafkaWrapper(
+    #             config=config,
+    #             consumer_kwargs={"max_poll_interval_ms": 500 * 3600 * 1000, "enable_auto_commit": False}
+    #         )
     
-    broker.listen(pipeline=model)
+    # broker.listen(pipeline=model)
     
     # Локальный запуск
-    # import time
-    # t1 = time.time()
-    # path = '/home/borntowarn/projects/borntowarn/train_data_yappy/train_dataset/{}.mp4'
-    # obj = path.format('dda04107-4a60-4335-a37a-c078ae1b7880')
-    # result = model(obj)
-    # print(time.time() - t1)
-    # print(result)
+    import time
+    t1 = time.time()
+    path = '/home/borntowarn/projects/borntowarn/train_data_yappy/train_dataset/{}.mp4'
+    obj = path.format('1c903311-53de-4af5-8581-3ce6dfd46de2')
+    result = model(obj)
+    print(time.time() - t1)
+    print(result)
