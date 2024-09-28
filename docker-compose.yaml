@@ -110,17 +110,13 @@ services:
   adapter:
     build:
       context: .
-      dockerfile: docker/Dockerfile.adapter
+      dockerfile: services/adapter/Dockerfile
     volumes:
-      - /home/borntowarn/projects/borntowarn:/home/borntowarn/projects/borntowarn
       - ./data/:/app/data/
     environment:
-      - ADAPTER_MODE=${ADAPTER_MODE}
-      - BROKER_TYPE=${BROKER_TYPE}
-      - LOGURU_LEVEL=${LOGURU_LEVEL}
+      - LOGURU_LEVEL=INFO
     deploy:
-      replicas: ${NUM_REPLICAS}
-    network_mode: "host"
+      replicas: 1
 
   php:
     build:
