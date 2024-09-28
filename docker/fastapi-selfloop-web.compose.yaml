@@ -1,0 +1,81 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  ultra-backend:
+    container_name: ultra-backend
+    build:
+      context: ../services/ultra_backend
+      dockerfile: Dockerfile
+    environment:
+      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBIT_INPUT_QUEUE=input
+      - RABBIT_OUTPUT_QUEUE=backend_output
+    ports:
+      - "8054:8054"
+    depends_on:
+      - rabbitmq
+      - fastapi-answer
+
+  fastapi-answer:
+    container_name: fastapi-answer
+    build:
+      context: ../services/ultra_backend
+      dockerfile: fastanswer.Dockerfile
+    environment:
+      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBIT_INPUT_QUEUE=input
+      - RABBIT_OUTPUT_QUEUE=backend_output
+    depends_on:
+      - rabbitmq
+
+  php:
+    build:
+      context: ../services/web/Docker/php
+    volumes:
+      - '../services/web/src:/var/www/html'
+
+  php-apache-environment:
+    container_name: php-apache2
+    #image: php:8.0-apache
+    build:
+      context: ../services/web/Docker/php-apache
+    volumes:
+      - ../services/web/src:/var/www/html/
+      - ../services/web/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    ports:
+      - "8080:80"
+    environment:
+      FASTAPI_URL: "http://ultra-backend:8054/check-video-duplicate"
+      HOSTNAME: "php-apache2"
+    depends_on:
+      - php
+      - mysql
+      - ultra-backend
+
+  mysql:
+    container_name: mysql
+    build:
+      context: ../services/web/Docker/mysql
+      dockerfile: Dockerfile
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - '../services/web/mysql_data:/var/lib/mysql'
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - "9100:80"
+    environment:
+      - PMA_ARBITRARY=1
+    depends_on:
+      - mysql
