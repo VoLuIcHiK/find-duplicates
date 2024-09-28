@@ -26,7 +26,7 @@ services:
       - "8080:80"
     environment:
       FASTAPI_URL: "http://host.docker.internal:8054/check-video-duplicate"
-      HOSTNAME: "localhost"
+      HOSTNAME: "LOCAL2"
 
   mysql:
     container_name: mysql

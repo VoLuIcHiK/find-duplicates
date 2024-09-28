@@ -66,6 +66,7 @@ def check_video_duplicate_post(
     """
     # Формирование модели запроса
     rabbit_out = RabbitPipelineOut(video_link=video_link.link)
+    logger.info(f"Got request: {json.dumps(rabbit_out.model_dump(), ensure_ascii=False)}")
     # Отправка в очередь
     rabbit.send_message(json.dumps(rabbit_out.model_dump()))
     # Реализация ожидания результата

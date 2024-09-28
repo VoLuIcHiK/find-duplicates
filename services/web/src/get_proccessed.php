@@ -1,6 +1,6 @@
 <?php
 $post = [
-    'link' => "http://localhost:8080/public/videos/{$_POST['video']}"
+    'link' => "http://{$_ENV['HOSTNAME']}:8080/public/videos/{$_POST['video']}"
 ];
 $ch = curl_init('https://webhook.site/8e55fc38-d728-472b-ac13-74c87805f723');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

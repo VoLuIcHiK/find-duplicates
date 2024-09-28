@@ -67,6 +67,7 @@ fileinput.addEventListener('input', function (e) {
                 xhr2.send(formdata2);
                 statusText.textContent = 'Обработка';
                 if (xhr2.status == 200) {
+                    console.log(xhr2.response)
                     let JSONobj = JSON.parse(xhr2.response)
                     console.log(JSONobj.link)
                     console.log((JSONobj.id)[0])
@@ -83,10 +84,11 @@ fileinput.addEventListener('input', function (e) {
                         statusText.textContent = 'Ошибка обработки';
                         document.getElementById('relVid').innerHTML = 'Ошибка обработки'
                     } else {
+                        document.getElementById('foobar').play();
                         document.getElementById('relVid').innerHTML = xhr3.response ? `<video style="width: 100%; height: 100%;" controls><source src="${xhr3.response}" type="video/mp4"></video>` : 'Нет похожих видео'
                     }
                 }
-            }, 1000)
+            }, 10000)
 
             if(interval) {
                 // вывести результат
@@ -96,7 +98,6 @@ fileinput.addEventListener('input', function (e) {
 
         setTimeout(() => {
 
-            document.getElementById('foobar').play();
             instruction.setAttribute('hidden', true);
             relatedPics.removeAttribute('hidden');
             relatedPics.style.display = 'flex';

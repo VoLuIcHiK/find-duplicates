@@ -2,4 +2,5 @@ mysql_data/
 !src/public/imgs/*
 !src/public/materials/*
 !src/public/sounds/*
-!src/public/videos/*
+src/public/videos/*
+!src/public/videos/rick-astley*.mp4
