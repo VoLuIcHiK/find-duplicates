@@ -164,7 +164,7 @@ class VideoDataloader:
     
     
     def _should_add_padding(self) -> bool:
-        #! hotfix 4
+        #! hotfix добавляем паддинги, если есть только 1/4 от размера батча
         return (len(self.frames) % self.sequence_length) >= self.stride // 4 and self.max_pad > 0 and len(self.frames) > 0
     
     

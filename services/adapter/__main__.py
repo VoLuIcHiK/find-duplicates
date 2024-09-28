@@ -1,23 +1,21 @@
 import configparser
 import os
-import traceback
+import sys
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import *
-import json
-import tempfile
-import sys
+
 sys.path.append('adapter')
 
 import albumentations as A
 import numpy as np
-from loguru import logger
-from ml_utils import (MilvusWrapper, TritonWrapper, VideoDataloader)
-from pymilvus import CollectionSchema, DataType, FieldSchema
-
-from src.utils import (extract_spectrogram, filter_by_threshold, intersection,
-                       is_drop_frame, seconds2timestamp, unite, business_logic, duplicates)
 import requests
+from loguru import logger
+from ml_utils import MilvusWrapper, TritonWrapper, VideoDataloader
+from pymilvus import CollectionSchema, DataType, FieldSchema
+from src.utils import (business_logic, duplicates, filter_by_threshold,
+                       intersection, seconds2timestamp, unite)
 
 logger.add(f"{__file__.split('/')[-1].split('.')[0]}.log", rotation="50 MB")
 
@@ -53,7 +51,7 @@ class Model:
         self.threshold = float(config['threshold']) # порог близости видео
         self.seq_len = int(config['seq_len']) # количество кадров в 1 сегменте
         self.stride = int(config['stride'])
-        self.mode = config['mode'] # Тип работы адаптера - вставка или сравнение
+        self.mode = config['mode'] # Тип работы адаптера - сравнение и вставка или сохранение фичей
         
         self.videos_folder = Path(config['videos_folder'])
         self.pickles_folder = Path(config['pickles_folder'])
@@ -118,12 +116,12 @@ class Model:
         далее с помощью Ausil производится извлечение эмбеддингов и получается финальное значения сравнения.
         """
         pass
-        return result
     
     
     def video_postprocess(self, data) -> list:
         """
         Метод, объединяющий несколько пересекающихся совпадающих отрезков сравнения в один большой.
+        Объединяет кусочки по наличию пересечения, так как эмбеддинги могут быть похожи для близких последовательностей.
         """
         logger.info('Start video processing')
         while True:
@@ -142,7 +140,6 @@ class Model:
                         prev_count = segments[segment][-1][1]
                         segments[segment][-1] = ((segments[segment][-1][0] * prev_count + hit[-1][0]) / next_count, next_count)
                         union = True
-                        
                 
                 if not union:
                     segments.append(hit)
@@ -152,27 +149,38 @@ class Model:
                 break
             else:
                 data = segments.copy()
+        
         logger.info('End video processing')
         return segments
     
     
-    def download_video(self, link):
+    def download_video(self, link) -> str:
+        """
+        Метод для скачивания видео с s3 или любой другой ссылки. 
+        Результат записывается во временные файл, возвращается путь до скачанного видео.
+
+        Args:
+            link (str): Ссылка на скачивание файла
+
+        Returns:
+            str: Путь к скачанному файлу
+        """
         logger.info(f'Downloading {link}...')
-        name = link.split('.')[-2].split('/')[-1]
         try:
             response = requests.get(link)
         except Exception as e:
             logger.error(f'Unable to download file {link}; error: {e}')
+            raise e
         
         filepath = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
         try:
-            # filepath = self.videos_folder / f'{name}-new.mp4'
             with open(filepath, 'wb') as f:
                 f.write(response.content)
         except Exception as e:
             logger.error(f'Error saving file {link}; error: {e}')
+            raise e
         
-        logger.success(f'Downloaded {name}')
+        logger.success(f'Downloaded {link}')
         return str(filepath)
     
     
@@ -232,13 +240,22 @@ class Model:
                     dataloader.appended_frames
                 )
                 logger.info('Data has been filtered by threshold')
-                segments = self.video_postprocess(data)
+                segments = self.video_postprocess(data) 
+                # OUT формат - [
+                    # [(l, r), id_piracy1, (l_p, r_p), (mean_score, num_seq)]
+                    # [(l, r), id_piracy2, (l_p, r_p), (mean_score, num_seq)]
+                # ]
+                
                 # filtered_segments = self.audio_postprocess(video_id, video_path, segments)
                 filtered_segments = segments
                 filtered_segments = business_logic(filtered_segments)
 
                 result = seconds2timestamp(filtered_segments)
                 result.pop(Path(video_path).stem, None)
+                # OUT формат - {
+                    # id_piracy1: [(mean_score, num_seq), (mean_score1, num_seq1)]]
+                    # id_piracy2: [(mean_score, num_seq), (mean_score1, num_seq1)]]
+                # }
                 
                 is_duplicate, is_hard, duplicate_for = duplicates(result)
                 
@@ -318,7 +335,7 @@ if __name__ == '__main__':
     import time
     t1 = time.time()
     path = '/home/borntowarn/projects/borntowarn/train_data_yappy/train_dataset/{}.mp4'
-    obj = path.format('1c903311-53de-4af5-8581-3ce6dfd46de2')
+    obj = path.format('992321a1-06b2-4f2c-a2d1-aa7f37a14da1')
     result = model(obj)
     print(time.time() - t1)
     print(result)
