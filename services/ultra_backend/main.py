@@ -84,7 +84,8 @@ def check_video_duplicate_post(
     if not ready_event.wait(20):
         raise HTTPException(status_code=500, detail="Timeout")
     # Формирование результата в модели
-    nn_output = RabbitPipelineIn.model_validate(result_task.result)
+    nn_output = RabbitPipelineIn.InnerResult.model_validate(result_task.result)
+    # Распаковка результата из модели
     logger.info(json.dumps(nn_output.model_dump(), ensure_ascii=False))
     # Возврат результата
     return VideoLinkResponse(

@@ -36,14 +36,17 @@ def fast_answer_thread():
             # Преобразование данных в модель
             data_dict = json.loads(data)
             nn_in = RabbitPipelineOut.model_validate(data_dict)
+            logger.info(f"Got: {json.dumps(nn_in.model_dump(), ensure_ascii=False)}")
             # Формирование результата
             is_duplicate = random.random() > 0.5
             duplicate_for = nn_in.video_link if is_duplicate else None
-            nn_output = RabbitPipelineIn(video_link=nn_in.video_link, is_duplicate=is_duplicate,
-                                         duplicate_for=duplicate_for)
+            nn_output = RabbitPipelineIn.InnerResult(video_link=nn_in.video_link, is_duplicate=is_duplicate,
+                                                     duplicate_for=duplicate_for)
+            rabbit_output = RabbitPipelineIn(result=nn_output)
             # Отправка результата в другую очередь
             connector.compact_publish_data(rabbit_url, input_queue,
-                                           json.dumps(nn_output.model_dump(), ensure_ascii=False))
+                                           json.dumps(rabbit_output.model_dump(), ensure_ascii=False))
+            logger.info(f"Send: {json.dumps(rabbit_output.model_dump(), ensure_ascii=False)}")
         time.sleep(0.01)
 
 

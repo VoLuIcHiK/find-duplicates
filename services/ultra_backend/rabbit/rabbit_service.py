@@ -95,6 +95,12 @@ class RabbitConsumerThread(Thread):
                 logger.info("RECONNECT")
 
     def filter_call(self, ch, method, body):
+        """
+        Вызов функции обратного взаимодействия, передав сообщение из очереди
+        :param ch: Канал
+        :param method: Имя метода отправки
+        :param body: Тело сообщения
+        """
         task: RabbitTask | None = None
         try:
             logger.info("CALLBACK")
@@ -103,7 +109,8 @@ class RabbitConsumerThread(Thread):
             logger.info(body)
             body_str = body.decode('utf-8')
             body_json = json.loads(body_str)
-            nn_output: RabbitPipelineIn = RabbitPipelineIn.model_validate(body_json)
+            rabbit_in: RabbitPipelineIn = RabbitPipelineIn.model_validate(body_json)
+            nn_output = rabbit_in.result
             logger.info(f"Parsed task NNOutput: {nn_output.model_dump()}")
             task_id = nn_output.video_link
             failed = False
