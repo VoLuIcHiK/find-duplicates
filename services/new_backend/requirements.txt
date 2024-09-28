@@ -1,0 +1,15 @@
+fastapi
+python-multipart
+celery
+uvicorn
+watchdog
+pydantic
+starlette
+loguru
+requests
+python-dotenv
+pika
+sqlalchemy
+websockets
+pyyaml
+gevent
