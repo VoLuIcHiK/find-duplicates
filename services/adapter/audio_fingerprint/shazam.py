@@ -137,7 +137,7 @@ def fingerprint_file(filename):
     return hash_points(peaks)
 
 
-def compare_fingerprints(file1, file2):
+def compare_fingerprints(fingerprints1, fingerprints2):
     """
     Compares the fingerprints of two files.
 
@@ -145,9 +145,6 @@ def compare_fingerprints(file1, file2):
     :param file2: Path to the second audio file
     :returns: A similarity score between the two files
     """
-    # Generate fingerprints for both files
-    fingerprints1 = fingerprint_file(file1)
-    fingerprints2 = fingerprint_file(file2)
     
     # Extract only the hashes from the fingerprints
     hashes1 = {fp[0] for fp in fingerprints1}

@@ -14,8 +14,8 @@ import requests
 from loguru import logger
 from ml_utils import MilvusWrapper, TritonWrapper, VideoDataloader
 from pymilvus import CollectionSchema, DataType, FieldSchema
-from src.utils import (business_logic, duplicates, filter_by_threshold,
-                       intersection, seconds2timestamp, unite)
+from src.utils import (duplicates, filter_by_threshold)
+from audio_fingerprint.shazam import fingerprint_file, compare_fingerprints
 
 logger.add(f"{__file__.split('/')[-1].split('.')[0]}.log", rotation="50 MB")
 
@@ -37,6 +37,8 @@ class Model:
                     },
                 index_name="qwer"
             )
+        
+        self.audio_store = {}
         
         self.milvus.collection.load()
         
@@ -236,10 +238,20 @@ class Model:
                 
                 # Сюда вернуть такой же словарь {id: score}
                 # is_match_audio = check_audio()
+                candidate_audio_scores = {}
+                candidate_fingerprint = fingerprint_file(video_path)
+                for vid_id, _ in candidate_video_scores.items():
+                    # check if vid_id in self.audio_store
+                    storage_fingerprint = self.audio_store.get(vid_id, None)
+                    if storage_fingerprint:
+                        score = compare_fingerprints(candidate_fingerprint, storage_fingerprint)
+                        candidate_audio_scores[vid_id] = score
+                    else:
+                        self.audio_store[vid_id] = candidate_fingerprint        
                 
                 is_duplicate, is_hard, duplicate_for = duplicates(
                     candidate_video_scores, 
-                    is_match_audio
+                    candidate_audio_scores
                 )
                 
                 if not is_duplicate:
