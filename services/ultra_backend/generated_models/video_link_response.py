@@ -7,8 +7,10 @@ from pydantic import BaseModel, StrictBool, Field, StrictStr
 
 class VideoLinkResponse(BaseModel):
     """
-    VideoLinkResponse
-    """ # noqa: E501
+    Результат проверки видео на дублирование
+    is_duplicate: признак дублирования
+    duplicate_for: идентификатор копии видео в формате uuid4
+    """
     is_duplicate: Optional[StrictBool] = Field(default=None, description="признак дублирования")
     duplicate_for: Optional[StrictStr] = Field(default=None, description="идентификатор видео в формате uuid4")
     __properties: ClassVar[List[str]] = ["is_duplicate", "duplicate_for"]

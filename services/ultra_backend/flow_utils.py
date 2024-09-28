@@ -7,10 +7,16 @@ from loguru import logger
 
 
 class FlowNotStartingException(Exception):
+    """
+    Ошибка, которая вызывается, если поток или процесс не запускается.
+    """
     pass
 
 
 class FlowControllerHasTooManyErrors(Exception):
+    """
+    Ошибка, которая вызывается, если количество ошибок превышает максимальное количество ошибок.
+    """
     pass
 
 
@@ -18,6 +24,9 @@ Flow = multiprocessing.Process | threading.Thread
 
 
 class FlowInfo:
+    """
+    Класс для хранения информации о функции внутри потока (thread) или процесса.
+    """
     def __init__(self, num_flow: int, name: str, *, func: Callable, args: Iterable, kwargs: Mapping):
         self.num_flow = num_flow
         self.name = name
@@ -27,7 +36,13 @@ class FlowInfo:
 
 
 class FlowController:
+    """
+    Написанный класс для управления потоками и процессами.
+    """
     def __init__(self, max_fail_count=10):
+        """
+        :param max_fail_count: Максимальное количество ошибок, после которого потоки будут перезапущены.
+        """
         self._run_thread: threading.Thread | None = None
         self._lock = multiprocessing.RLock()
         self._flows_num = 0
@@ -36,10 +51,19 @@ class FlowController:
 
     @property
     def flows(self) -> dict[FlowInfo, Flow]:
+        """
+        :return: Возвращает словарь с потоками и процессами.
+        """
         return self._flows.copy()
 
     @logger.catch(reraise=True)
     def loop_check(self):
+        """
+        Проверяет потоки и процессы на состояния работы.
+        Если поток или процесс завершился, то он перезапускается.
+        Если количество ошибок превышает максимальное количество ошибок(max_fail_count),
+        то будет вызвана ошибка контроллера.
+        """
         total_fail_count = 0
         while True:
             for flowInfo, flow in self._flows.copy().items():
@@ -77,12 +101,19 @@ class FlowController:
             time.sleep(1)
 
     def run_infinite(self, block=True):
+        """
+        Запускает поток, который будет проверять потоки и процессы на состояния работы.
+        :param block: Если True, то метод будет ждать завершения потока контроля.
+        """
         self._run_thread = threading.Thread(target=self.loop_check, daemon=True)
         self._run_thread.start()
         if block:
             self.join()
 
     def join(self):
+        """
+        Ожидание завершения потока контроля.
+        """
         while True:
             if not self._run_thread.is_alive():
                 break
@@ -90,11 +121,19 @@ class FlowController:
 
     @staticmethod
     def _try_force_close(f: Flow):
+        """
+        Пытается принудительно завершить процесс или поток.
+        :param f: Поток или процесс
+        """
         if type(f) is multiprocessing.Process:
             FlowController.kill_process(f)
 
     @staticmethod
     def kill_process(p: multiprocessing.Process):
+        """
+        Принудительно завершает процесс.
+        :param p: Процесс
+        """
         try:
             if p.is_alive():
                 p.terminate()
@@ -103,6 +142,13 @@ class FlowController:
             pass
 
     def add_process(self, target: Callable, args: Iterable = None, kwargs: Mapping = None, name="Unnamed"):
+        """
+        Добавляет функцию как процесс в контроллер.
+        :param target: Функция
+        :param args: Аргументы к функции
+        :param kwargs: Ключевые аргументы к функции
+        :param name: Имя процесса
+        """
         if args is None:
             args = tuple()
         if kwargs is None:
@@ -118,6 +164,13 @@ class FlowController:
         logger.info(f"Process #{funcData.num_flow} \"{funcData.name}\" started!")
 
     def add_thread(self, target: Callable, args: Iterable = None, kwargs: Mapping = None, name="Unnamed"):
+        """
+        Добавляет функцию как поток (thread) в контроллер.
+        :param target: Функция
+        :param args: Аргументы к функции
+        :param kwargs: Ключевые аргументы к функции
+        :param name: Имя потока
+        """
         if args is None:
             args = tuple()
         if kwargs is None:

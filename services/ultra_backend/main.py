@@ -57,8 +57,18 @@ def check_video_duplicate_post(
         rabbit: RabbitPipelineUnit = Depends(get_rabbit),
         rabbit_cons: RabbitConsumerThread = Depends(get_rabbit_consumer),
 ) -> VideoLinkResponse:
+    """
+    Проверка видео на дублирование
+    :param video_link: Ссылка на видео (URL)
+    :param rabbit: Внутренняя зависимость к описанию соединений RabbitMQ
+    :param rabbit_cons: Внутренняя зависимость к описанию слушателя (callbacks) RabbitMQ
+    :return: Результат проверки в виде модели VideoLinkResponse
+    """
+    # Формирование модели запроса
     rabbit_out = RabbitPipelineOut(video_link=video_link.link)
+    # Отправка в очередь
     rabbit.send_message(json.dumps(rabbit_out.model_dump()))
+    # Реализация ожидания результата
     ready_event = threading.Event()
     result_task: RabbitTask | None = None
 
@@ -67,12 +77,16 @@ def check_video_duplicate_post(
         result_task = r
         ready_event.set()
 
+    # Создания задания отслеживания результата
     rabbit_task = RabbitTask(task_id=video_link.link, in_args=rabbit_out.model_dump(), callback=set_ready)
     rabbit_cons.add_task(rabbit_task)
+    # Само ожидания, ограниченное по времени
     if not ready_event.wait(20):
         raise HTTPException(status_code=500, detail="Timeout")
+    # Формирование результата в модели
     nn_output = RabbitPipelineIn.model_validate(result_task.result)
     logger.info(json.dumps(nn_output.model_dump(), ensure_ascii=False))
+    # Возврат результата
     return VideoLinkResponse(
         is_duplicate=nn_output.is_duplicate,
         duplicate_for=nn_output.duplicate_for
@@ -80,6 +94,9 @@ def check_video_duplicate_post(
 
 
 def load_rabbit():
+    """
+    Загрузка переменных из окружения для RabbitMQ
+    """
     global rabbit_url
     rabbit_url = os.environ.get('RABBIT_URL')
     if rabbit_url is None:
@@ -95,21 +112,27 @@ def load_rabbit():
 
 
 def rabbit_thread():
+    """
+    Функция для работы с RabbitMQ. Будет вызвана в другом потоке
+    """
     global rabbit_consumer
     rabbit_consumer = RabbitConsumerThread(rabbit_url, input_queue)
     rabbit_consumer.run()
 
 
-
-
 def main():
+    """
+    Точка входа в приложение
+    """
     env_file = pathlib.Path(__file__).parent / '.env'
     if env_file.exists():
-        dotenv.load_dotenv(env_file)
+        dotenv.load_dotenv(env_file)  # Загрузка переменных из файла .env в окружение для удобства тестирования
     load_rabbit()
     f = FlowController(max_fail_count=3)
+    # Запуск очереди RabbitMQ
     f.add_thread(rabbit_thread, name="Rabbit")
     # f.add_thread(fast_answer_thread, name="FastAnswer") # TEST ONLY!!!
+    # Запуск FastAPI
     port = 8054
     logger.info(f'Web access: http://127.0.0.1:{port}/docs')
     uvicorn.run(app, host="0.0.0.0", port=port)
