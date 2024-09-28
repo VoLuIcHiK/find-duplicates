@@ -1,0 +1,28 @@
+services:
+  # ultra-backend:
+  #   container_name: ultra-backend
+  #   build:
+  #     context: ../services/ultra_backend
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+  #     - RABBIT_INPUT_QUEUE=piracy_detection_output
+  #     - RABBIT_OUTPUT_QUEUE=piracy_detection_input
+  #   ports:
+  #     - "8054:8054"
+  
+  adapter:
+    build:
+      context: ..
+      dockerfile: services/adapter/Dockerfile
+    environment:
+      - LOGURU_LEVEL=INFO
+    volumes:
+      - /home/borntowarn/projects/borntowarn:/home/borntowarn/projects/borntowarn
+    deploy:
+      replicas: 1
+  
+networks:
+  default:
+    name: piracy
+    external: true

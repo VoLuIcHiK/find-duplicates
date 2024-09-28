@@ -1,45 +1,6 @@
-services:
-  rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+version: '3.5'
 
-  ultra-backend:
-    container_name: ultra-backend
-    build:
-      context: ./services/ultra_backend
-      dockerfile: Dockerfile
-    environment:
-      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
-      - RABBIT_INPUT_QUEUE=input
-      - RABBIT_OUTPUT_QUEUE=backend_output
-    ports:
-      - "8054:8054"
-    depends_on:
-      - rabbitmq
-  
-  tritonserver:
-    image: nvcr.io/nvidia/tritonserver:24.09-py3
-    command: ["tritonserver", "--model-repository=/models"]
-    volumes:
-      - ../model_repository:/models      # Папка с движками моделей и конфигами
-    ports:
-      - "8000:8000"
-      - "8001:8001"
-      - "8002:8002"
-    deploy:                              # Разрешение на использование GPU
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-              device_ids: ['0']
-              driver: nvidia
-  
+services:
   etcd:
     container_name: milvus-etcd
     image: quay.io/coreos/etcd:v3.5.5
@@ -106,18 +67,8 @@ services:
       MILVUS_URL: standalone:19530
     ports:
       - "8886:3000"
-  
-  adapter:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.adapter
-    volumes:
-      - /home/borntowarn/projects/borntowarn:/home/borntowarn/projects/borntowarn
-      - ./data/:/app/data/
-    environment:
-      - ADAPTER_MODE=${ADAPTER_MODE}
-      - BROKER_TYPE=${BROKER_TYPE}
-      - LOGURU_LEVEL=${LOGURU_LEVEL}
-    deploy:
-      replicas: ${NUM_REPLICAS}
-    network_mode: "host"
+
+networks:
+  default:
+    name: piracy
+    external: true

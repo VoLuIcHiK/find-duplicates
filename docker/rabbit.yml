@@ -1,0 +1,17 @@
+version: '3.5'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+networks:
+  default:
+    name: piracy
+    external: true

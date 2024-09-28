@@ -1,0 +1,24 @@
+version: '3.5'
+
+services:
+  tritonserver:
+    image: nvcr.io/nvidia/tritonserver:24.09-py3
+    command: ["tritonserver", "--model-repository=/models"]
+    volumes:
+      - ../model_repository:/models      # Папка с движками моделей и конфигами
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+    deploy:                              # Разрешение на использование GPU
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              device_ids: ['0']
+              driver: nvidia
+
+networks:
+  default:
+    name: piracy
+    external: true

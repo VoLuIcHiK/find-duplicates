@@ -1,13 +1,13 @@
 services:
-  rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+  # rabbitmq:
+  #   image: rabbitmq:3.12-management
+  #   container_name: rabbitmq
+  #   environment:
+  #     - RABBITMQ_DEFAULT_USER=guest
+  #     - RABBITMQ_DEFAULT_PASS=guest
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
 
   ultra-backend:
     container_name: ultra-backend
@@ -16,22 +16,42 @@ services:
       dockerfile: Dockerfile
     environment:
       - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
-      - RABBIT_INPUT_QUEUE=input
-      - RABBIT_OUTPUT_QUEUE=backend_output
+      - RABBIT_INPUT_QUEUE=piracy_detection_output
+      - RABBIT_OUTPUT_QUEUE=piracy_detection_input
     ports:
       - "8054:8054"
     depends_on:
       - rabbitmq
-      - fastapi-answer
+      # - fastapi-answer
 
-  fastapi-answer:
-    container_name: fastapi-answer
-    build:
-      context: ../services/ultra_backend
-      dockerfile: fastanswer.Dockerfile
-    environment:
-      - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
-      - RABBIT_INPUT_QUEUE=input
-      - RABBIT_OUTPUT_QUEUE=backend_output
-    depends_on:
-      - rabbitmq
+  # fastapi-answer:
+  #   container_name: fastapi-answer
+  #   build:
+  #     context: ../services/ultra_backend
+  #     dockerfile: fastanswer.Dockerfile
+  #   environment:
+  #     - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
+  #     - RABBIT_INPUT_QUEUE=backend_input
+  #     - RABBIT_OUTPUT_QUEUE=backend_output
+  #   depends_on:
+  #     - rabbitmq
+  
+  # adapter:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.adapter
+  #   volumes:
+  #     - /home/borntowarn/projects/borntowarn:/home/borntowarn/projects/borntowarn
+  #     - ./data/:/app/data/
+  #   environment:
+  #     - ADAPTER_MODE=${ADAPTER_MODE}
+  #     - BROKER_TYPE=${BROKER_TYPE}
+  #     - LOGURU_LEVEL=${LOGURU_LEVEL}
+  #   deploy:
+  #     replicas: ${NUM_REPLICAS}
+  #   network_mode: "host"
+
+networks:
+  default:
+    name: piracy
+    external: true
