@@ -1,0 +1,47 @@
+version: '3'
+services:
+  php:
+    build:
+      context: Docker/php
+    volumes:
+      - './src:/var/www/html'
+
+  #nginx:
+  #  image: nginx:latest
+  #  ports:
+  #    - 80:80
+  #  volumes:
+  #    - './src:/var/www/html'
+  #    - './docker/nginx/conf.d:/etc/nginx/conf.d'
+
+  php-apache-environment:
+    container_name: php-apache2
+    #image: php:8.0-apache
+    build:
+      context: Docker/php-apache
+    volumes:
+      - ./src:/var/www/html/
+      - ./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    ports:
+      - "8080:80"
+    environment:
+      FASTAPI_URL: "http://host.docker.internal:8054/check-video-duplicate"
+      HOSTNAME: "localhost"
+
+  mysql:
+    container_name: mysql
+    build:
+        context: ./Docker/mysql
+        dockerfile: Dockerfile
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+        - './mysql_data:/var/lib/mysql'
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - "9100:80"
+    environment:
+      - PMA_ARBITRARY=1
