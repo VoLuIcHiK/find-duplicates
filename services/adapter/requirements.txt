@@ -1,0 +1,15 @@
+amqp==5.2.0
+configparser==6.0.1
+imageio==2.34.0
+kafka-python
+librosa==0.10.1
+llvmlite
+loguru
+numpy
+opencv-python
+pymilvus
+soundfile
+soxr
+tritonclient[all]
+albumentations==1.4.3
+grpcio

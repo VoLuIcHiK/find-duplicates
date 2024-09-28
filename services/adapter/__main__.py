@@ -207,13 +207,10 @@ class Model:
                 
                 dataloader = VideoDataloader(
                     video_path, 
-                    self.seq_len, 
-                    self.timesformer.max_batch_size,
-                    stride=8, 
                     transforms=self.transform
                 )
                 
-                npy_path = Path(video_path).parent.parent / 'train_pickles' / f"{str(Path(video_path).stem)}.npy"
+                npy_path = Path(video_path).parent.parent / 'train_pickles_8' / f"{str(Path(video_path).stem)}.npy"
                 # npy_path = Path(video_path).with_suffix('.npy')
                 if os.path.exists(npy_path):
                     features = np.load(npy_path)
@@ -223,45 +220,29 @@ class Model:
                     dataloader.appended_frames = [range(100)]
                 else:
                     for n, batch in enumerate(dataloader):
-                        batch = batch.transpose(0, 1, 4, 2, 3)
+                        batch = batch[None].transpose(0, 1, 4, 2, 3)
                         last_hidden_state = self.timesformer(batch)[0]
                         feature = last_hidden_state[:, 0]
                         feature = feature / np.linalg.norm(feature, axis=-1, keepdims=True)
                         similarity_data.extend(self.milvus.vector_search(feature))
                         insert_features.append(feature)
+                        break
                 logger.success('Feature requests sucessed')
                 
-                data = filter_by_threshold(
+                candidate_video_scores = filter_by_threshold(
                     similarity_data,
-                    self.threshold,
-                    self.seq_len,
-                    self.stride,
-                    dataloader.skipped_frames,
-                    dataloader.appended_frames
+                    self.threshold
                 )
-                logger.info('Data has been filtered by threshold')
-                segments = self.video_postprocess(data) 
-                # OUT формат - [
-                    # [(l, r), id_piracy1, (l_p, r_p), (mean_score, num_seq)]
-                    # [(l, r), id_piracy2, (l_p, r_p), (mean_score, num_seq)]
-                # ]
                 
-                # filtered_segments = self.audio_postprocess(video_id, video_path, segments)
-                filtered_segments = segments
-                filtered_segments = business_logic(filtered_segments)
-
-                result = seconds2timestamp(filtered_segments)
-                result.pop(Path(video_path).stem, None)
-                # OUT формат - {
-                    # id_piracy1: [(mean_score, num_seq), (mean_score1, num_seq1)]]
-                    # id_piracy2: [(mean_score, num_seq), (mean_score1, num_seq1)]]
-                # }
+                # Сюда вернуть такой же словарь {id: score}
+                # is_match_audio = check_audio()
                 
-                is_duplicate, is_hard, duplicate_for = duplicates(result)
+                is_duplicate, is_hard, duplicate_for = duplicates(
+                    candidate_video_scores, 
+                    is_match_audio
+                )
                 
                 if not is_duplicate:
-                    # insert_features = np.concatenate(insert_features)
-                    # logger.error(insert_features.shape)
                     self.milvus.insert(self.create_data_rows(insert_features, video_link, 0, 123))
                     logger.success(f'Inserting sucessful')
                     
@@ -276,15 +257,19 @@ class Model:
             
             elif self.mode == 'save':
                 features = []
-                dataloader = VideoDataloader(video_path, self.seq_len, self.timesformer.max_batch_size,
-                                         stride=8, transforms=self.transform)
+                
+                dataloader = VideoDataloader(
+                    video_path, 
+                    transforms=self.transform
+                )
                 
                 for n, batch in enumerate(dataloader):
-                    batch = batch.transpose(0, 1, 4, 2, 3)
+                    batch = batch[None].transpose(0, 1, 4, 2, 3)
                     last_hidden_state = self.timesformer(batch)[0]
                     feature = last_hidden_state[:, 0]
                     feature = feature / np.linalg.norm(feature, axis=-1, keepdims=True)
                     features.append(feature)
+                    break
                 logger.success('Feature requests sucessed')
                 
                 features = np.concatenate(features)
@@ -310,32 +295,32 @@ class Model:
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
-    config = config['adapter_local']
-    # config.read(f'configs/resources.ini')
-    # config = config['adapter_docker']
+    # config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
+    # config = config['adapter_local']
+    config.read(f'configs/resources.ini')
+    config = config['adapter_docker']
     
     model = Model(config=config)
     
-    # broker = config['broker']
-    # match broker:
-    #     case 'rabbit':
-    #         from ml_utils import RabbitWrapper
-    #         broker = RabbitWrapper(config=config)
-    #     case 'kafka':
-    #         from ml_utils import KafkaWrapper
-    #         broker = KafkaWrapper(
-    #             config=config,
-    #             consumer_kwargs={"max_poll_interval_ms": 500 * 3600 * 1000, "enable_auto_commit": False}
-    #         )
+    broker = config['broker']
+    match broker:
+        case 'rabbit':
+            from ml_utils import RabbitWrapper
+            broker = RabbitWrapper(config=config)
+        case 'kafka':
+            from ml_utils import KafkaWrapper
+            broker = KafkaWrapper(
+                config=config,
+                consumer_kwargs={"max_poll_interval_ms": 500 * 3600 * 1000, "enable_auto_commit": False}
+            )
     
-    # broker.listen(pipeline=model)
+    broker.listen(pipeline=model)
     
     # Локальный запуск
-    import time
-    t1 = time.time()
-    path = '/home/borntowarn/projects/borntowarn/train_data_yappy/train_dataset/{}.mp4'
-    obj = path.format('992321a1-06b2-4f2c-a2d1-aa7f37a14da1')
-    result = model(obj)
-    print(time.time() - t1)
-    print(result)
+    # import time
+    # t1 = time.time()
+    # path = '/home/borntowarn/projects/borntowarn/train_data_yappy/train_dataset/{}.mp4'
+    # obj = path.format('992321a1-06b2-4f2c-a2d1-aa7f37a14da1')
+    # result = model(obj)
+    # print(time.time() - t1)
+    # print(result)
