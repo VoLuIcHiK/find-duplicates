@@ -1,8 +1,4 @@
 <?php
-//if (!getenv('FASTAPI_URL')) {
-//    $_ENV['FASTAPI_URL'] = 'http://projectvoid.my.to:8054/check-video-duplicate';
-//}
-
 $post = [
     'link' => $_POST['link'],
     'id' => $_POST['id']
@@ -30,14 +26,18 @@ $response = curl_exec($curl);
 curl_close($curl);
 $result = json_decode($response, true);
 
-if (!array_key_exists('duplicate_for', $result)) {
+$proccessedDuplicatedFor = str_replace($_ENV['HOSTNAME'],'localhost', $result['duplicate_for']);;
+
+if (is_null($result)) {
     $result['duplicate_for'] = NULL;
 }
 
 $conn = mysqli_connect('mysql', 'root', 'root', 'yappy_db');
-$sql = "UPDATE video SET `related_video` = '{$result['duplicate_for']}' WHERE id = {$post['id']}";
+$sql = "UPDATE video SET `related_video` = '{$proccessedDuplicatedFor}' WHERE id = {$post['id']}";
 
 if (!$conn->query($sql)) {
     print_r($conn->error);
 }
-echo $result['duplicate_for'];
+
+
+echo $proccessedDuplicatedFor;

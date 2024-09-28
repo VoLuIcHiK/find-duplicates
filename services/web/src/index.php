@@ -1,13 +1,11 @@
 <?php require_once('include/header.php');
-//$_ENV['FASTAPI_URL'] = "http://projectvoid.my.to:8054/check-video-duplicate";
-//$_ENV["HOSTNAME"] = "localhost:8080";
+$fastapi_url = 'http://projectvoid.my.to:8054/check-video-duplicate';
+if (getenv('FASTAPI_URL')) $fastapi_url = $_ENV['FASTAPI_URL'];
+$_ENV['HOSTNAME'] = 'localhost';
 $conn = mysqli_connect('mysql', 'root', 'root', 'yappy_db');
 $videos = $conn->query('SELECT * FROM video');
+//var_dump($_SERVER['HTTP_HOST']);
 ?>
-
-<pre style="color: white">
-    <?= var_dump($_ENV) ?>
-</pre>
 
 <main>
     <div class="container">
