@@ -46,7 +46,4 @@ definitions:
       duplicate_for:
         type: string
         description: идентификтаор видео в формате uuid4
-        enum: 
-          - "0003d59f-89cb-4c5c-9156-6c5bc07c6fad"
-          - "000ab50a-e0bd-4577-9d21-f1f426144321"
   
