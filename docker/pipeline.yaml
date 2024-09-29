@@ -17,8 +17,6 @@ services:
       dockerfile: services/adapter/Dockerfile
     environment:
       - LOGURU_LEVEL=INFO
-    volumes:
-      - /home/borntowarn/projects/borntowarn:/home/borntowarn/projects/borntowarn
     deploy:
       replicas: 1
   

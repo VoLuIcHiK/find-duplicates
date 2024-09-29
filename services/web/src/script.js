@@ -88,7 +88,7 @@ fileinput.addEventListener('input', function (e) {
                         document.getElementById('relVid').innerHTML = xhr3.response ? `<video style="width: 100%; height: 100%;" controls><source src="${xhr3.response}" type="video/mp4"></video>` : 'Нет похожих видео'
                     }
                 }
-            }, 10000)
+            }, 3000)
 
             if(interval) {
                 // вывести результат
@@ -125,20 +125,60 @@ if (dropZone) {
 
         if(displayFile()) {
             file.disabled = true;
-            instruction.setAttribute('hidden', true);
-            const xhr = new XMLHttpRequest();
-            xhr.open('post', 'upload_video.php', false);
+            const formdata = new FormData();
+            const xhr = new XMLHttpRequest()
+            formdata.append('video', file)
 
-            for (let i = 0; i <= 100; i++) {
-                updateProgress(i, 100, 'Загружено');
+            xhr.open('post', 'upload_video.php', false);
+            xhr.send(formdata);
+
+            if (xhr.status != 200) {
+                // обработать ошибку
+                alert( xhr.status + ': ' + xhr.statusText, xhr.status); // пример вывода: 404: Not Found
+            } else {
+                statusText.textContent = 'Загружено 100%';
+                progressbar.value = 100;
+                const formdata2 = new FormData();
+                formdata2.append('video', file.name);
+                let xhr2 = new XMLHttpRequest();
+
+                let interval = setInterval(() => {
+                    xhr2.open('post', 'get_proccessed.php', false);
+                    xhr2.send(formdata2);
+                    statusText.textContent = 'Обработка';
+                    if (xhr2.status == 200) {
+                        console.log(xhr2.response)
+                        let JSONobj = JSON.parse(xhr2.response)
+                        console.log(JSONobj.link)
+                        console.log((JSONobj.id)[0])
+                        statusText.textContent = 'Обработано 100%';
+                        let formData3 = new FormData();
+                        formData3.append('link', JSONobj.link);
+                        formData3.append('id', (JSONobj.id)[0])
+                        let xhr3 = new XMLHttpRequest();
+                        xhr3.open('post', 'check_duplicated.php', false);
+                        xhr3.send(formData3);
+                        console.log(xhr3)
+                        clearInterval(interval);
+                        if (xhr3.status != 200) {
+                            statusText.textContent = 'Ошибка обработки';
+                            document.getElementById('relVid').innerHTML = 'Ошибка обработки'
+                        } else {
+                            document.getElementById('foobar').play();
+                            document.getElementById('relVid').innerHTML = xhr3.response ? `<video style="width: 100%; height: 100%;" controls><source src="${xhr3.response}" type="video/mp4"></video>` : 'Нет похожих видео'
+                        }
+                    }
+                }, 3000)
+
+                if(interval) {
+                    // вывести результат
+                    alert(xhr.responseText, xhr.status);
+                }
             }
 
             setTimeout(() => {
-                for (let i = 0; i <= 100; i++) {
-                    updateProgress(i, 100, 'Обработано');
-                }
 
-                document.getElementById('foobar').play();
+                instruction.setAttribute('hidden', true);
                 relatedPics.removeAttribute('hidden');
                 relatedPics.style.display = 'flex';
             }, 2000)

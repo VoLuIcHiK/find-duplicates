@@ -6,7 +6,7 @@
             <progress class="progress-bar" style="width: 100%; height: 0.25em;" value="0" max="100"></progress>
         </div>
         <audio id="foobar" src="public/sounds/beautiful-sms-notification-sound.mp3" preload="auto"></audio>
-        <div class="file-input" id="input-file-container" style="position: relative;">
+        <div class="file-input" id="input-file-container">
             <div style="width: 100%; height: 100%" id="img-input" hidden></div>
             <input type="file" id="file" hidden>
             <label for="file" id="input-file">Выберите видео или перетащите его сюда</label>

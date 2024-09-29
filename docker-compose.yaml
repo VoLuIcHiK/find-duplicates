@@ -16,8 +16,8 @@ services:
       dockerfile: Dockerfile
     environment:
       - RABBIT_URL=amqp://guest:guest@rabbitmq:5672/
-      - RABBIT_INPUT_QUEUE=input
-      - RABBIT_OUTPUT_QUEUE=backend_output
+      - RABBIT_INPUT_QUEUE=piracy_detection_output
+      - RABBIT_OUTPUT_QUEUE=piracy_detection_input
     ports:
       - "8054:8054"
     depends_on:
@@ -27,7 +27,7 @@ services:
     image: nvcr.io/nvidia/tritonserver:24.09-py3
     command: ["tritonserver", "--model-repository=/models"]
     volumes:
-      - ../model_repository:/models      # Папка с движками моделей и конфигами
+      - ./model_repository:/models      # Папка с движками моделей и конфигами
     ports:
       - "8000:8000"
       - "8001:8001"
@@ -117,7 +117,47 @@ services:
       - /home/borntowarn/projects/borntowarn:/home/borntowarn/projects/borntowarn
     deploy:
       replicas: 1
+
+  php:
+    build:
+      context: ./services/web/Docker/php
+    volumes:
+      - './services/web/src:/var/www/html'
+
+  php-apache-environment:
+    container_name: php-apache2
+    #image: php:8.0-apache
+    build:
+      context: ./services/web/Docker/php-apache
+    volumes:
+      - ./services/web/src:/var/www/html/
+      - ./services/web/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    ports:
+      - "8080:80"
+    environment:
+      FASTAPI_URL: "http://ultra-backend:8054/check-video-duplicate"
+      HOSTNAME: "php-apache2"
     depends_on:
-      - rabbitmq
-      - tritonserver
-      - standalone
+      - php
+      - mysql
+      - ultra-backend
+
+  mysql:
+    container_name: mysql
+    build:
+      context: ./services/web/Docker/mysql
+      dockerfile: Dockerfile
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - './services/web/mysql_data:/var/lib/mysql'
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - "9100:80"
+    environment:
+      - PMA_ARBITRARY=1
+    depends_on:
+      - mysql

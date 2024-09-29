@@ -125,9 +125,9 @@ main {
 
 }
 #input-file-container {
+    position: relative;
     border: 8px dashed #00E2B8;
     color: white;
-    padding: 150px;
     cursor: pointer;
 }
 #input-file-container input {
@@ -135,7 +135,7 @@ main {
 }
 #input-file {
     text-align: center;
-    width: 164px;
+    padding: 150px;
     display: block;
 }
 #img-input {
