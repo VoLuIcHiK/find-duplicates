@@ -36,12 +36,6 @@ services:
     depends_on:
       - rabbitmq
 
-  php:
-    build:
-      context: ../services/web/Docker/php
-    volumes:
-      - '../services/web/src:/var/www/html'
-
   php-apache-environment:
     container_name: php-apache2
     #image: php:8.0-apache
@@ -55,8 +49,8 @@ services:
     environment:
       FASTAPI_URL: "http://ultra-backend:8054/check-video-duplicate"
       HOSTNAME: "php-apache2"
+      PUBLIC_PORT: "8080"
     depends_on:
-      - php
       - mysql
       - ultra-backend
 

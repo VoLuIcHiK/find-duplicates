@@ -26,7 +26,7 @@ $response = curl_exec($curl);
 curl_close($curl);
 $result = json_decode($response, true);
 
-$proccessedDuplicatedFor = str_replace($_ENV['HOSTNAME'],'localhost', $result['duplicate_for']);;
+$proccessedDuplicatedFor = str_replace($_ENV['HOSTNAME'].':80','localhost:'.$_ENV['PUBLIC_PORT'], $result['duplicate_for']);;
 
 if (is_null($result)) {
     $result['duplicate_for'] = NULL;

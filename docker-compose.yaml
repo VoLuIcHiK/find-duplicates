@@ -132,6 +132,7 @@ services:
     environment:
       FASTAPI_URL: "http://ultra-backend:8054/check-video-duplicate"
       HOSTNAME: "php-apache2"
+      PUBLIC_PORT: "8080"
     depends_on:
       - mysql
       - ultra-backend
