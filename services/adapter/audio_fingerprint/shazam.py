@@ -7,12 +7,6 @@ from . import sh_opt
 
 
 def mp4_to_wav(mp4_file, wav_file):
-    """
-    Converts a video file (mp4) to a wav audio file.
-
-    :param mp4_file: Path to the video file
-    :param wav_file: Path where to save the audio
-    """
     assert mp4_file[-3:] == 'mp4'
 
     video = VideoFileClip(mp4_file, audio_fps=44100 // 4)

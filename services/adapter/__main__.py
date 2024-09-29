@@ -10,11 +10,11 @@ sys.path.append('adapter')
 import albumentations as A
 import numpy as np
 import requests
+from audio_fingerprint.shazam import compare_fingerprints, fingerprint_file
 from loguru import logger
 from ml_utils import MilvusWrapper, TritonWrapper, VideoDataloader
 from pymilvus import CollectionSchema, DataType, FieldSchema
-from src.utils import (duplicates, filter_by_threshold)
-from audio_fingerprint.shazam import fingerprint_file, compare_fingerprints
+from src.utils import duplicates, filter_by_threshold
 
 logger.add(f"{__file__.split('/')[-1].split('.')[0]}.log", rotation="50 MB")
 
@@ -24,25 +24,27 @@ class Model:
         
         self.milvus = MilvusWrapper(config=config)
         self.milvus.connect()
-        self.milvus.init_collection(config['collection_name'], schema=self.create_schema())
+        self.milvus.init_collection(
+            config['collection_name'],
+            schema=self.create_schema()
+        )
         
         if len(self.milvus.collection.indexes) == 0:
             self.milvus.collection.create_index(
-                field_name="features", 
-                index_params={
-                    "metric_type":"COSINE",
-                    "index_type": "IVF_FLAT",
-                    "params": {"nlist":128}
+                field_name = "features", 
+                index_params = {
+                        "metric_type": "COSINE",
+                        "index_type": "IVF_FLAT",
+                        "params": {"nlist": 128}
                     },
                 index_name="qwer"
             )
+        self.milvus.collection.load()
         
         self.audio_store = {}
         
-        self.milvus.collection.load()
         
         self.timesformer = TritonWrapper(config=config, config_prefix='TIMESFORMER')
-        
         self.transform = lambda x: A.Compose([
             A.SmallestMaxSize(224),
             A.CenterCrop(224, 224),
@@ -50,10 +52,8 @@ class Model:
         ])(image=x)['image']
         
         self.video_threshold = float(config['video_threshold']) # порог близости видео
-        self.audio_threshold = float(config['audio_threshold']) # порог близости видео
+        self.audio_threshold = float(config['audio_threshold']) # порог близости аудио
         
-        self.seq_len = int(config['seq_len']) # количество кадров в 1 сегменте
-        self.stride = int(config['stride'])
         self.mode = config['mode'] # Тип работы адаптера - сравнение и вставка или сохранение фичей
         
         self.videos_folder = Path(config['videos_folder'])
@@ -79,11 +79,6 @@ class Model:
             max_length=200,
             default_value="Unknown"
         )
-        
-        position = FieldSchema(
-            name="position",
-            dtype=DataType.INT64
-        )
 
         features = FieldSchema(
             name="features",
@@ -92,23 +87,20 @@ class Model:
         )
 
         schema = CollectionSchema(
-            fields=[vid, name, features, position],
+            fields=[vid, name, features],
             description=description,
             enable_dynamic_field=True
         )
         return schema
     
     
-    def create_data_rows(self, features, video_id, start_id, position) -> list:
+    def create_data_rows(self, features, video_id) -> list:
         """
-        Метод для генерации строк для вставки в Milvus. Каждому эмбеддингу соответствует
-        свой временной промежуток, поэтому к названию видео прибавляется добавка вида "_n",
-        которая содержит видео с (n * 8) по (n * 8 + 8) секунд.  
+        Метод для генерации строк для вставки в Milvus.
         """
         data = [
-            [video_id + f'_{i}' for i in range(start_id, start_id + len(features))], # videoID_clipNUM
-            features,
-            [position] * len(features)
+            [video_id for i in range(len(features))],
+            features
         ]
         return data
 
@@ -143,12 +135,45 @@ class Model:
         return str(filepath)
     
     
+    def get_audio_scores(self, candidate_video_scores: dict, video_path: str | Path) -> tuple[dict, list | tuple[()]]:
+        """
+        Метод для получения схожести аудиодорожек после видеосравнения.
+        Если в видеодорожке нет аудио - помечаем его как 2.0 для дальнейшей проверки.
+
+        Args:
+            candidate_video_scores (dict): _description_
+            video_path (str | Path): _description_
+
+        Returns:
+            tuple[dict, list | tuple[()]]: Словарь, аналогичный candidate_video_scores, 
+                и закодированные точки в алгоритм сравнения аудио.
+        """
+        candidate_audio_scores = {}
+        try:
+            query_fingerprint = fingerprint_file(video_path)
+        except:
+            query_fingerprint = ()
+        
+        for vid_id, _ in candidate_video_scores.items():
+            candidat_fingerprint = self.audio_store[vid_id] # фичи кандидата
+            if len(candidat_fingerprint) == 0 or len(query_fingerprint) == 0:
+                candidate_audio_scores[vid_id] = 2.0
+                continue
+            score = compare_fingerprints(
+                query_fingerprint, 
+                candidat_fingerprint
+            )
+            candidate_audio_scores[vid_id] = score
+        
+        return candidate_audio_scores, query_fingerprint
+    
+    
     def __call__(self, video_link: str, **kwargs):
         """
         Метод для обработки входящего сообщения из очереди.
 
         Args:
-            video_id (str): id видео на платформе или локальный путь
+            video_link (str): id видео на платформе или локальный путь
 
         Returns:
             dict: словарь ответа. В брокере будет переведен в json
@@ -156,26 +181,28 @@ class Model:
         try:
             if not 'http' in video_link:
                 video_path = video_link
+                video_id = str(Path(video_path).stem)
+                
             else:
                 video_path = self.download_video(video_link)
+                video_id = video_link.split('/')[-1].split('.')[0]
 
-                 
+            logger.info(f'Start procesing {video_id}')
             if self.mode == 'similarity':
                 similarity_data = []
                 insert_features = []
                 
-                dataloader = VideoDataloader(
-                    video_path, 
-                    transforms=self.transform
-                )
+                dataloader = VideoDataloader(video_path, transforms=self.transform)
                 
-                npy_path = self.pickles_folder / f"{str(Path(video_path).stem)}.npy"
-                # npy_path = Path(video_path).with_suffix('.npy')
+                #! Это нужно для более быстрого локального запуска
+                npy_path = self.pickles_folder / f"{video_id}.npy"
                 if os.path.exists(npy_path):
                     features = np.load(npy_path)
                     insert_features = features
                     similarity_data.extend(self.milvus.vector_search(features))
+                    logger.success('Feature loaded sucessed')
                 else:
+                    #! Основная часть с подгрузкой видео на лету
                     for n, batch in enumerate(dataloader):
                         batch = batch[None].transpose(0, 1, 4, 2, 3)
                         last_hidden_state = self.timesformer(batch)[0]
@@ -184,31 +211,18 @@ class Model:
                         similarity_data.extend(self.milvus.vector_search(feature))
                         insert_features.append(feature)
                         break
-                logger.success('Feature requests sucessed')
+                    insert_features = np.concatenate(insert_features)
+                    logger.success('Feature requests sucessed')
                 
                 candidate_video_scores = filter_by_threshold(
                     similarity_data,
                     self.video_threshold
                 )
-                
-                # Сюда вернуть такой же словарь {id: score}
-                # is_match_audio = check_audio()
-                candidate_audio_scores = {}
-                try:
-                    query_fingerprint = fingerprint_file(video_path)
-                except:
-                    query_fingerprint = ()
-                for vid_id, _ in candidate_video_scores.items():
-                    candidat_fingerprint = self.audio_store[vid_id] # фичи кандидата
-                    if len(candidat_fingerprint) == 0 or len(query_fingerprint) == 0:
-                        candidate_audio_scores[vid_id] = 2.0
-                        continue
-                    # if candidat_fingerprint:
-                    score = compare_fingerprints(query_fingerprint, candidat_fingerprint)
-                    candidate_audio_scores[vid_id] = score
-                    # else:
-                        # self.audio_store[vid_id] = query_fingerprint
-                        # candidate_audio_scores[vid_id] = 0
+
+                candidate_audio_scores, query_fingerprint = self.get_audio_scores(
+                    candidate_video_scores,
+                    video_path
+                )
                 
                 is_duplicate, is_hard, duplicate_for = duplicates(
                     candidate_video_scores, 
@@ -217,13 +231,20 @@ class Model:
                     self.audio_threshold
                 )
                 
+                logger.info(f'Is duplicate - {is_duplicate}')
+                
                 if not is_duplicate:
-                    self.audio_store[str(Path(video_path).stem)] = query_fingerprint
-                    features = np.concatenate(features)
-                    self.milvus.insert(self.create_data_rows(insert_features, video_link, 0, 123))
+                    import pickle
+                    self.audio_store[video_id] = query_fingerprint
+                    pickle.dump(self.audio_store, open('audio_data.pkl', 'wb'),)
+                    self.milvus.insert(
+                        self.create_data_rows(
+                            insert_features,
+                            video_id
+                    ))
                     logger.success(f'Inserting sucessful')
                     
-                logger.info('Segments have been converted to timestamps')
+                
                 result = {
                     'video_link': video_link,
                     'is_duplicate': is_duplicate,
@@ -247,13 +268,12 @@ class Model:
                     feature = feature / np.linalg.norm(feature, axis=-1, keepdims=True)
                     features.append(feature)
                     break
+                features = np.concatenate(features)
                 logger.success('Feature requests sucessed')
                 
-                features = np.concatenate(features)
-                name = Path(video_path).stem
-                filepath =  self.pickles_folder / f'{name}.npy'
-                # np.save(filepath, features)
-                logger.success(f'Save sucessful')
+                filepath =  self.pickles_folder / f'{video_id}.npy'
+                np.save(filepath, features)
+                logger.success(f'Save {video_id} sucessful')
                 
                 result = {'path': str(filepath)}
 

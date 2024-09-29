@@ -1,4 +1,10 @@
-def duplicates(video_scores, audio_scores, video_thresh, audio_thresh):
+def duplicates(video_scores, audio_scores, video_thresh, audio_thresh) -> tuple[bool, bool, str | None]:
+    """
+    Функция для вынесения вердикта по значениям близости видео и аудио. 
+    
+    Returns:
+        tuple: 3 значения - is_duplicate, is_hard, duplicate_for
+    """
     is_duplicate, is_hard, duplicate_for = False, False, None
     
     for id_, val in dict(sorted(video_scores.items(), key = lambda x: x[1])).items():
@@ -20,14 +26,17 @@ def duplicates(video_scores, audio_scores, video_thresh, audio_thresh):
             break
     
     return is_duplicate, is_hard, duplicate_for
-                
+
 
 
 def filter_by_threshold(data, threshold):
+    """
+    Функция для отсеивания совпадений по видео по порогу
+    """
     result = {}
-    for n, hits in enumerate(data):
+    for hits in data:
         for hit in hits:
             if hit['distance'] > threshold:
-                result[hit['entity']['video_id'].split('/')[-1].split('.')[0]] = hit['distance']
+                result[hit['entity']['video_id']] = hit['distance']
     
     return result
