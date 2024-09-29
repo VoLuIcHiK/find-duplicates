@@ -57,7 +57,7 @@ class Model:
         
         self.mode = config['mode'] # Тип работы адаптера - сравнение и вставка или сохранение фичей
         
-        self.videos_folder = Path(config['videos_folder'])
+        # self.videos_folder = Path(config['videos_folder'])
         self.pickles_folder = Path(config['pickles_folder'])
         audio_store_path = Path(config['audio_store'])
         

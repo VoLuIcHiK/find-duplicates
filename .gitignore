@@ -8,7 +8,7 @@
 *.csv
 *.png
 volumes/
-
+data/
 ### Example user template template
 ### Example user template
 

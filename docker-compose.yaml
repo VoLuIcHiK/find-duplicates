@@ -114,7 +114,7 @@ services:
     environment:
       - LOGURU_LEVEL=INFO
     volumes:
-      - /home/borntowarn/projects/borntowarn:/home/borntowarn/projects/borntowarn
+      - ./data:/app/adapter/data
     deploy:
       replicas: 1
 
