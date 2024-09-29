@@ -15,6 +15,7 @@ from loguru import logger
 from ml_utils import MilvusWrapper, TritonWrapper, VideoDataloader
 from pymilvus import CollectionSchema, DataType, FieldSchema
 from src.utils import duplicates, filter_by_threshold
+import pickle
 
 logger.add(f"{__file__.split('/')[-1].split('.')[0]}.log", rotation="50 MB")
 
@@ -58,6 +59,11 @@ class Model:
         
         self.videos_folder = Path(config['videos_folder'])
         self.pickles_folder = Path(config['pickles_folder'])
+        audio_store_path = Path(config['audio_store'])
+        
+        if os.path.exists(audio_store_path):
+            self.audio_store = pickle.load(open(audio_store_path, 'rb'))
+        logger.info(f'Len of audio {len(self.audio_store)}')
         
         os.makedirs(self.pickles_folder, exist_ok=True)
     
@@ -234,9 +240,7 @@ class Model:
                 logger.info(f'Is duplicate - {is_duplicate}')
                 
                 if not is_duplicate:
-                    import pickle
                     self.audio_store[video_id] = query_fingerprint
-                    pickle.dump(self.audio_store, open('audio_data.pkl', 'wb'),)
                     self.milvus.insert(
                         self.create_data_rows(
                             insert_features,
@@ -292,10 +296,10 @@ class Model:
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
-    config = config['adapter_local']
-    # config.read(f'configs/resources.ini')
-    # config = config['adapter_docker']
+    # config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
+    # config = config['adapter_local']
+    config.read(f'configs/resources.ini')
+    config = config['adapter_docker']
     
     model = Model(config=config)
     
