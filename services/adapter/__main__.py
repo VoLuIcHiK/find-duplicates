@@ -32,8 +32,8 @@ class Model:
                 field_name="features", 
                 index_params={
                     "metric_type":"COSINE",
-                    "index_type":"IVF_FLAT",
-                    "params":{"nlist":128}
+                    "index_type": "IVF_FLAT",
+                    "params": {"nlist":128}
                     },
                 index_name="qwer"
             )
@@ -50,7 +50,9 @@ class Model:
             A.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])(image=x)['image']
         
-        self.threshold = float(config['threshold']) # порог близости видео
+        self.video_threshold = float(config['video_threshold']) # порог близости видео
+        self.audio_threshold = float(config['audio_threshold']) # порог близости видео
+        
         self.seq_len = int(config['seq_len']) # количество кадров в 1 сегменте
         self.stride = int(config['stride'])
         self.mode = config['mode'] # Тип работы адаптера - сравнение и вставка или сохранение фичей
@@ -110,51 +112,7 @@ class Model:
             [position] * len(features)
         ]
         return data
-    
-    
-    def audio_postprocess(self, video_id, video_path, data) -> Any | list:
-        """
-        Метод сравнения аудиодорожек. Извлекает спектрограммы необходимых кусочков 2-х видео,
-        далее с помощью Ausil производится извлечение эмбеддингов и получается финальное значения сравнения.
-        """
-        pass
-    
-    
-    def video_postprocess(self, data) -> list:
-        """
-        Метод, объединяющий несколько пересекающихся совпадающих отрезков сравнения в один большой.
-        Объединяет кусочки по наличию пересечения, так как эмбеддинги могут быть похожи для близких последовательностей.
-        """
-        logger.info('Start video processing')
-        while True:
-            segments = []
-            video2index = defaultdict(set)
-            for hit in data:
-                union = False
-                video_id = hit[1]
-                
-                for segment in video2index[video_id]:
-                    if intersection(segments[segment][0], hit[0]) and intersection(segments[segment][2], hit[2]):
-                        segments[segment][0] = unite(segments[segment][0], hit[0])
-                        segments[segment][2] = unite(segments[segment][2], hit[2])
-                        
-                        next_count = segments[segment][-1][1] + 1
-                        prev_count = segments[segment][-1][1]
-                        segments[segment][-1] = ((segments[segment][-1][0] * prev_count + hit[-1][0]) / next_count, next_count)
-                        union = True
-                
-                if not union:
-                    segments.append(hit)
-                    video2index[video_id].add(len(segments) - 1)
-            
-            if len(segments) == len(data):
-                break
-            else:
-                data = segments.copy()
-        
-        logger.info('End video processing')
-        return segments
-    
+
     
     def download_video(self, link) -> str:
         """
@@ -212,14 +170,12 @@ class Model:
                     transforms=self.transform
                 )
                 
-                npy_path = Path(video_path).parent.parent / 'train_pickles_8' / f"{str(Path(video_path).stem)}.npy"
+                npy_path = self.pickles_folder / f"{str(Path(video_path).stem)}.npy"
                 # npy_path = Path(video_path).with_suffix('.npy')
                 if os.path.exists(npy_path):
                     features = np.load(npy_path)
                     insert_features = features
                     similarity_data.extend(self.milvus.vector_search(features))
-                    dataloader.skipped_frames = []
-                    dataloader.appended_frames = [range(100)]
                 else:
                     for n, batch in enumerate(dataloader):
                         batch = batch[None].transpose(0, 1, 4, 2, 3)
@@ -233,28 +189,38 @@ class Model:
                 
                 candidate_video_scores = filter_by_threshold(
                     similarity_data,
-                    self.threshold
+                    self.video_threshold
                 )
                 
                 # Сюда вернуть такой же словарь {id: score}
                 # is_match_audio = check_audio()
                 candidate_audio_scores = {}
-                candidate_fingerprint = fingerprint_file(video_path)
+                try:
+                    query_fingerprint = fingerprint_file(video_path)
+                except:
+                    query_fingerprint = ()
                 for vid_id, _ in candidate_video_scores.items():
-                    # check if vid_id in self.audio_store
-                    storage_fingerprint = self.audio_store.get(vid_id, None)
-                    if storage_fingerprint:
-                        score = compare_fingerprints(candidate_fingerprint, storage_fingerprint)
-                        candidate_audio_scores[vid_id] = score
-                    else:
-                        self.audio_store[vid_id] = candidate_fingerprint        
+                    candidat_fingerprint = self.audio_store[vid_id] # фичи кандидата
+                    if len(candidat_fingerprint) == 0 or len(query_fingerprint) == 0:
+                        candidate_audio_scores[vid_id] = 2.0
+                        continue
+                    # if candidat_fingerprint:
+                    score = compare_fingerprints(query_fingerprint, candidat_fingerprint)
+                    candidate_audio_scores[vid_id] = score
+                    # else:
+                        # self.audio_store[vid_id] = query_fingerprint
+                        # candidate_audio_scores[vid_id] = 0
                 
                 is_duplicate, is_hard, duplicate_for = duplicates(
                     candidate_video_scores, 
-                    candidate_audio_scores
+                    candidate_audio_scores,
+                    self.video_threshold,
+                    self.audio_threshold
                 )
                 
                 if not is_duplicate:
+                    self.audio_store[str(Path(video_path).stem)] = query_fingerprint
+                    features = np.concatenate(features)
                     self.milvus.insert(self.create_data_rows(insert_features, video_link, 0, 123))
                     logger.success(f'Inserting sucessful')
                     
@@ -287,7 +253,7 @@ class Model:
                 features = np.concatenate(features)
                 name = Path(video_path).stem
                 filepath =  self.pickles_folder / f'{name}.npy'
-                np.save(filepath, features)
+                # np.save(filepath, features)
                 logger.success(f'Save sucessful')
                 
                 result = {'path': str(filepath)}
@@ -307,10 +273,10 @@ class Model:
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    # config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
-    # config = config['adapter_local']
-    config.read(f'configs/resources.ini')
-    config = config['adapter_docker']
+    config.read('/home/borntowarn/projects/borntowarn/find-duplicates/configs/resources.ini')
+    config = config['adapter_local']
+    # config.read(f'configs/resources.ini')
+    # config = config['adapter_docker']
     
     model = Model(config=config)
     
