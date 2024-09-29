@@ -118,12 +118,6 @@ services:
     deploy:
       replicas: 1
 
-  php:
-    build:
-      context: ./services/web/Docker/php
-    volumes:
-      - './services/web/src:/var/www/html'
-
   php-apache-environment:
     container_name: php-apache2
     #image: php:8.0-apache
@@ -138,7 +132,6 @@ services:
       FASTAPI_URL: "http://ultra-backend:8054/check-video-duplicate"
       HOSTNAME: "php-apache2"
     depends_on:
-      - php
       - mysql
       - ultra-backend
 
@@ -151,13 +144,3 @@ services:
       MYSQL_ROOT_PASSWORD: root
     volumes:
       - './services/web/mysql_data:/var/lib/mysql'
-
-  phpmyadmin:
-    image: phpmyadmin
-    restart: always
-    ports:
-      - "9100:80"
-    environment:
-      - PMA_ARBITRARY=1
-    depends_on:
-      - mysql
