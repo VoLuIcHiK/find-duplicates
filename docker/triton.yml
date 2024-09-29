@@ -5,12 +5,12 @@ services:
     image: nvcr.io/nvidia/tritonserver:24.09-py3
     command: ["tritonserver", "--model-repository=/models"]
     volumes:
-      - ../model_repository:/models      # Папка с движками моделей и конфигами
+      - ../model_repository:/models
     ports:
       - "8000:8000"
       - "8001:8001"
       - "8002:8002"
-    deploy:                              # Разрешение на использование GPU
+    deploy:
       resources:
         reservations:
           devices:

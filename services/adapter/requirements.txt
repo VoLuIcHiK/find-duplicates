@@ -1,8 +1,7 @@
-amqp==5.2.0
-configparser==6.0.1
-imageio==2.34.0
-kafka-python
-librosa==0.10.1
+amqp
+configparser
+imageio
+librosa
 llvmlite
 loguru
 numpy
@@ -11,5 +10,7 @@ pymilvus
 soundfile
 soxr
 tritonclient[all]
-albumentations==1.4.3
+albumentations
 grpcio
+pydub
+moviepy
