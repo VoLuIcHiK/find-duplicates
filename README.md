@@ -95,5 +95,7 @@
 Далее открыть Swagger страницу в браузере по адресу: http://localhost:8054/docs и протестировать работу эндпоинта.  
 Будут возвращаться случайные значения.
 
+Версия с корректрными путями к volume находится в ветке free4ky
+
 ## <a name="9">Ссылки</a>
 - [Гугл диск с материалами](https://drive.google.com/drive/folders/1eZOUoq9VwWq9YPDzA4q11AcCsS-dLl73?usp=sharing)
