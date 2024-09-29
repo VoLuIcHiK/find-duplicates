@@ -1,12 +1,3 @@
-import datetime
-import os
-
-import cv2
-import numpy as np
-import librosa as lib
-from collections import defaultdict
-
-
 def duplicates(video_scores, audio_scores, video_thresh, audio_thresh):
     is_duplicate, is_hard, duplicate_for = False, False, None
     

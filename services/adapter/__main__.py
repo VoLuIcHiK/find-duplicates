@@ -2,7 +2,6 @@ import configparser
 import os
 import sys
 import tempfile
-from collections import defaultdict
 from pathlib import Path
 from typing import *
 

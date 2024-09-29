@@ -1,12 +1,8 @@
-import uuid
 import numpy as np
-import os, pickle
 from pydub import AudioSegment
-from pathlib import Path
 from moviepy.editor import VideoFileClip
 from scipy.signal import spectrogram
 from scipy.ndimage import maximum_filter
-from tqdm import tqdm
 from . import sh_opt
 
 
