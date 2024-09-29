@@ -72,8 +72,17 @@
   <img src="https://github.com/vinceliuice/Tela-icon-theme/blob/master/src/scalable/apps/nvidia.svg" title="Triton" alt="Triton" width="40" height="40"/>&nbsp;
 
 ## <a name="7"> Инструкция по запуску кода </a>
-#### Нужно иметь установленный Docker и Docker Compose.
-#### Далее выполнить команду:
+### 1. Обращение по API
+- Откройте Swagger страницу в браузере по адресу: http://87.236.30.202:8054/docs
+- Веб интерфейс доступен в браузере по ссылке: http://87.236.30.202:8080
+  
+### 2. Локальный запуск
+#### [⚠️] Нужно иметь установленный Docker и Docker Compose.
+1. Сконвертируте модель в формат transformers с помощью notebooks/convert_model_to_transformers.ipynb
+2. Сконвертируйте полученную модель в onnx с помощью notebooks/convert_onnx_transformers.ipynb
+3. Сконвертиуруйте модель в формат tensorrt plan и поместите в model_repository/timesformer_dynamic_128_fp16_tensorrt/1
+
+#### Далее выполните команду:
 > docker-compose up -d  
 
 #### Далее открыть Swagger страницу в браузере по адресу: http://localhost:8054/docs. 
